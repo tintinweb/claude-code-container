@@ -1,0 +1,45 @@
+# Docker
+.dockerignore
+Dockerfile.bak
+
+# Build artifacts
+reports/
+*.log
+
+# Temporary files
+temp/
+.tmp/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Node modules (if any MCP servers are added)
+node_modules/
+npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+
+# Security sensitive
+*.key
+*.pem
+*.crt
+secrets/
