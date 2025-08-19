@@ -1,29 +1,27 @@
 #!/bin/bash
 
-# Interactive Claude Code Shell
+# Debug Shell - Get a bash shell inside the Docker container
 set -e
 
-# Parse arguments - first two can be INPUT_DIR and DATA_DIR, rest go to Claude
-CLAUDE_ARGS=()
+# Parse arguments
 INPUT_DIR=""
 DATA_DIR=""
 
 # Process arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --x-help|-h)
-            echo "Usage: $0 [INPUT_DIR] [DATA_DIR] [CLAUDE_OPTIONS...]"
+        --help|-h)
+            echo "Usage: $0 [INPUT_DIR] [DATA_DIR]"
             echo ""
             echo "Arguments:"
             echo "  INPUT_DIR     Directory to mount as input (default: current directory)"
             echo "  DATA_DIR      Optional data directory to mount"
-            echo "  CLAUDE_OPTIONS Any additional options to pass to Claude Code"
             echo ""
             echo "Examples:"
-            echo "  $0                                    # Use current dir as input"
-            echo "  $0 ./code ./data                     # Specify input and data dirs"
-            echo "  $0 ./code --debug                    # Pass --debug to Claude"
-            echo "  $0 ./code ./data --model claude-3.5-sonnet  # Specify model"
+            echo "  $0                      # Use current dir as input"
+            echo "  $0 ./code ./data        # Specify input and data dirs"
+            echo ""
+            echo "This script starts a bash shell inside the container for debugging."
             exit 0
             ;;
         *)
@@ -32,7 +30,9 @@ while [[ $# -gt 0 ]]; do
             elif [[ -z "$DATA_DIR" ]] && [[ -d "$1" ]]; then
                 DATA_DIR="$1"
             else
-                CLAUDE_ARGS+=("$1")
+                echo "❌ Unknown argument: $1"
+                echo "Use --help for usage information"
+                exit 1
             fi
             ;;
     esac
@@ -49,7 +49,7 @@ if [ ! -d "$INPUT_DIR" ]; then
 fi
 
 if [ -z "$CLAUDE_API_KEY" ]; then
-    echo "⚠️  Warning: CLAUDE_API_KEY not set. Claude Code may not work properly."
+    echo "⚠️  Warning: CLAUDE_API_KEY not set."
     echo "   Set it with: export CLAUDE_API_KEY='your-api-key'"
     echo ""
 fi
@@ -57,9 +57,11 @@ fi
 # Create reports directory
 mkdir -p reports
 
-# Build Docker run command with enhanced security
+# Build Docker run command with same security settings as run_claude.sh
 DOCKER_ARGS=(
     "run" "-it" "--rm"
+    # Override entrypoint to get bash shell
+    "--entrypoint" "bash"
     # Security: Drop all capabilities
     "--cap-drop=ALL"
     # Security: Prevent privilege escalation
@@ -88,13 +90,14 @@ if [ -n "$DATA_DIR" ]; then
     echo "📚 Using reference data from: $DATA_DIR"
 fi
 
-echo "🚀 Starting Claude Code in interactive mode..."
+echo "🐚 Starting debug shell inside container..."
 echo "📁 Input: $INPUT_DIR"
 echo "📊 Output: $(pwd)/reports"
-if [[ ${#CLAUDE_ARGS[@]} -gt 0 ]]; then
-    echo "🔧 Claude options: ${CLAUDE_ARGS[*]}"
-fi
+echo "🔍 Use this shell to debug the container environment"
+echo "   - Claude config: cat ~/.claude.json"
+echo "   - MCP servers: ls -la /workspace/mcp-servers/"
+echo "   - Test Claude: claude-code --help"
 echo ""
 
-# Run the container with Claude Code in interactive mode, passing through any additional arguments
-docker "${DOCKER_ARGS[@]}" claude-code-container "${CLAUDE_ARGS[@]}"
+# Run the container with bash shell
+docker "${DOCKER_ARGS[@]}" claude-code-container

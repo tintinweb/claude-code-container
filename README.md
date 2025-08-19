@@ -1,47 +1,67 @@
 # Claude Code Container
 
-A Docker container for running Claude Code with Claude 4 Sonnet in "dangerously allow all executions" mode.
+A Docker container for running Claude Code in "dangerously skip permissions" mode.
+
+https://github.com/user-attachments/assets/81c731d9-caeb-48cf-aa3e-65a48c55519e
+
+Build the docker container and execute `run_claude.sh` to run an isolated version of claude code with access to the current working dir (`readOnly:/workspace/input`).
+
+```
+/workspace/
+├── input/              # Host input files (read-only mount of $PWD)
+├── output/             # Analysis results (writable mount to host)
+├── data/               # Reference data (optional read-only mount)
+├── temp/               # Temporary files (tmpfs mount)
+├── .claude/            # Claude Code project settings
+│   └── settings.local.json
+└── mcp-servers/        # MCP server installations
+```
+
+
+## Variants
+
+### 1. claude-standalone
+Basic Claude Code container without any MCP servers configured. Clean, simple setup.
+
+### 2. claude-with-mcp-example  
+Claude Code container with MCP servers pre-configured (e.g., Chonky Security Tools). Shows how to add MCP servers, configure them, and auto-trust their execution.
 
 ## Quick Start
 
 ### Prerequisites
 
 1. **Claude Code License**: Ensure you have a valid Claude Code license
-2. **API Key**: Set your Anthropic API key
+2. **OAuth Token**: Set your Claude Code OAuth token
 3. **Docker**: Docker must be installed and running
 
-### Build the Container
+### Build and Run
+
 
 ```bash
 # Clone this repository
 git clone <repository-url>
-cd container-claude
+cd claude-code-container
 
-# Build the container
+# For standalone version
+cd claude-standalone
 ./build.sh
-```
+CLAUDE_CODE_OAUTH_TOKEN=sk-... ./run_claude.sh
 
-### Running Claude in the Container
-
-#### Interactive Mode
-
-```bash
-# Start interactive session with current directory
-./interactive-shell.sh
-
-# With specific input directory
-./interactive-shell.sh /path/to/your/code
-
-# With input and reference data directories
-./interactive-shell.sh /path/to/your/code /path/to/reference-data
+# For MCP example version  
+cd claude-with-mcp-example
+./build.sh
+CLAUDE_CODE_OAUTH_TOKEN=sk-... ./run_claude.sh
 
 # Pass additional Claude options
-./interactive-shell.sh /path/to/your/code --model claude-3.5-sonnet --debug
+CLAUDE_CODE_OAUTH_TOKEN=sk-... ./run_claude.sh --debug --mcp-debug
 ```
 
 ## Environment Variables
 
-- `CLAUDE_API_KEY`: Your Anthropic API key (required)
+- `CLAUDE_CODE_OAUTH_TOKEN`: Your Claude Code OAuth token (required)
+
+Run `claude setup-token`, login, save the resulting `sk-*` token.
+
 
 ## Security Features
 
@@ -53,231 +73,62 @@ cd container-claude
 - **Network isolation**: Bridge network with no host access
 - **Security options**: No new privileges allowed
 
-### Analysis Settings
-- **Dangerous executions allowed**: Pre-configured for automation
-- **Trusted workspace**: No trust prompts during analysis
+### Jailfree Mode
+- **Dangerous executions allowed**: Pre-configured for full automation
+- **Auto-trusted workspace**: No trust prompts during analysis
 - **Comprehensive tool permissions**: Access to all tools via wildcard allowlist
 
+## MCP Server Integration (claude-with-mcp-example)
 
-## Example: MCP Server Integration
+The MCP example shows how to integrate Model Context Protocol servers:
 
-The container includes the Chonky MCP Server for advanced security analysis:
+### Adding Your Own MCP Server
 
-**Chonky MCP Server**: Advanced security analysis tools
-- Smart contract analysis (Solidity metrics, structure analysis)
-- Vulnerability database search
-- Semgrep custom rules
-- Access control analysis
-- Reentrancy detection
-- Oracle dependency analysis
-- And 50+ security analysis tools
+1. **Copy MCP to build context**: `./mcp/<your-mcp>/`
+2. **Update Dockerfile**: Add COPY and build steps
+3. **Configure in claude-config.json**: Add MCP server definition
+4. **Build and run**: Use the build script
 
-### Available Chonky Tools
-
-Key security analysis tools available:
-- `chonky-solidity-metrics`: Comprehensive Solidity codebase metrics
-- `chonky-solidity-contract-structure`: Contract analysis and dependencies
-- `chonky-vulnerability-database-search`: Security vulnerability lookup
-- `chonky-semgrep`: Custom security rules and static analysis
-- `chonky-solidity-reentrancy`: Reentrancy vulnerability detection
-- `chonky-solidity-access-control`: Access control pattern analysis
-- `chonky-solidity-oracle-dependency`: Oracle security analysis
-- And 40+ additional security analysis tools
-
-## Add your own MCP
-
-**Preparation**:
-- copy your mcp to ./mcp/<your mcp> to be included in the Docker build, or
-- npm install it with the **Dockerfile**
-- add any additional tools to the **Dockerfile**
-
-**Dockerfile**:
-- go to `Configure MCP Providers`
-- add a `COPY` line if the MCP source is in the ./mcp/<your mcp> folder and `RUN` compilation if needed. Else skip (make sure you `npm install -g` your server, though)
-
-
-```Dockerfile
-################ Configure MCP Providers  --->
-
-# Copy pre-built MCP server into container (from mcp/chonky)
-COPY --chown=${USER_NAME}:${USER_NAME} mcp/chonky /workspace/mcp-servers/chonky-mcp-server
-
-# Install MCP server runtime dependencies only (using package-lock.json for exact versions)
-RUN cd /workspace/mcp-servers/chonky-mcp-server && npm ci --production
-
-# Don't forget to configure the MCP in claude-config.json
-
-################# <--- Configure MCP Providers 
-```
-
-**Claude-config.json**:
-- pre configure the mcp server under `"mcpServers":`. Follow the template.
-
+Example MCP configuration:
 ```json
 "mcpServers": {
-   "chonky-stdio": {
+   "your-mcp": {
       "type": "stdio",
       "command": "node",
-      "args": ["/workspace/mcp-servers/chonky-mcp-server/build/index.js", "stdio"],
+      "args": ["/workspace/mcp-servers/your-mcp/build/index.js", "stdio"],
       "env": {},
       "trusted": true,
       "autoStart": true
    }
-},
-```
-
-**Build**:
-- run the `build.sh` script
-- run the `interactive-shell.sh` script
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────┐
-│                Container                    │
-├─────────────────────────────────────────────┤
-│ Claude Code + Security Tools                │
-│ ├── Semgrep (SAST)                         │
-│ ├── Solhint (Solidity linting)             │
-│ ├── Foundry (Smart contract toolkit)       │
-│ └── Node.js ecosystem                      │
-├─────────────────────────────────────────────┤
-│ MCP Server                                  │
-│ └── Chonky MCP (Security analysis)         │
-├─────────────────────────────────────────────┤
-│ Security Layer                              │
-│ ├── Non-root user (claude:1001)            │
-│ ├── Dropped capabilities                   │
-│ ├── Process limits (100 PIDs)              │
-│ └── Tmpfs mounts                            │
-└─────────────────────────────────────────────┘
-```
-
-## Directory Structure
-
-```
-/workspace/
-├── input/          # Input files (read-only mount from host)
-├── output/         # Analysis results (writable mount to host ./reports)
-├── data/           # Reference data (optional read-only mount)
-├── temp/           # Temporary files (tmpfs)
-└── mcp-servers/    # MCP server installations
-    └── chonky-mcp-server/
-```
-
-## Configuration Files
-
-### Claude Configuration (`~/.claude.json`)
-```json
-{
-  "workspaceFolders": {
-    "/workspace": {
-      "allowedTools": ["*"],
-      "permissions": {
-        "allow": [
-          "Bash(*)", "Edit(*)", "Read(*)", "Write(*)",
-          "List(*)", "Glob(*)", "Grep(*)", "Task(*)",
-          "WebFetch(*)", "WebSearch(*)", "NotebookRead(*)",
-          "NotebookWrite(*)", "mcp__*"
-        ],
-        "defaultMode": "acceptEdits",
-        "additionalDirectories": ["/workspace/input", "/workspace/output", "/workspace/data", "/workspace/temp"]
-      },
-      "autoAcceptAllTools": true,
-      "autoAcceptMcpTools": true,
-      "dangerouslyAllowAllExecutions": true
-    }
-  },
-  "mcpServers": {
-    "chonky-stdio": {
-      "command": "node",
-      "args": ["/workspace/mcp-servers/chonky-mcp-server/build/index.js", "stdio"],
-      "trusted": true,
-      "autoStart": true
-    }
-  },
-  "modelPreferences": {
-  },
-  "automationSettings": {
-    "allowWebSearch": true,
-    "allowWebFetch": true,
-    "allowFileOperations": true,
-    "allowBashExecution": true,
-    "suppressTrustPrompts": true,
-    "autoAcceptPermissions": true
-  }
 }
+```
+
+## Usage Examples
+
+### Basic Claude Session
+```bash
+export CLAUDE_CODE_OAUTH_TOKEN="sk-your-token"
+./run_claude.sh
+```
+
+### With Debug Options
+```bash
+./run_claude.sh --debug --mcp-debug
 ```
 
 ## Troubleshooting
 
-### "No MCP servers configured" or MCP server not starting
-The container includes pre-configured MCP server setup. If issues persist:
-1. Rebuild the container with `./build.sh`
-2. Check that the Chonky MCP server is properly installed in the container
-3. Verify the API key is set correctly
-
-### Permission Errors
-Ensure your mounted directories have appropriate permissions for UID 1001:
+### OAuth Token Issues
+Verify your OAuth token is set correctly:
 ```bash
-sudo chown -R 1001:1001 /path/to/your/workspace
+export CLAUDE_CODE_OAUTH_TOKEN="sk-your-token-here"
+./run_claude.sh
 ```
 
-### API Key Issues
-Verify your API key is set correctly:
+### Debug Container Access
 ```bash
-export CLAUDE_API_KEY="your-api-key-here"
-./interactive-shell.sh /path/to/code
+./debug-shell.sh  # Access container shell for debugging
 ```
-
-## Advanced Usage
-
-### Docker Run Options
-The `interactive-shell.sh` script includes comprehensive security settings:
-- Capability dropping (`--cap-drop=ALL`)
-- No new privileges (`--security-opt=no-new-privileges:true`)
-- Process limits (`--pids-limit=100`)
-- Tmpfs mounts for temporary storage
-- Network isolation
-
-### Custom Analysis
-Pass additional options to Claude Code:
-```bash
-./interactive-shell.sh /path/to/code --model claude-3.5-sonnet --debug --mcp-debug
-```
-
-## Security Considerations
-
-- **API Key Security**: Never commit API keys. Use environment variables.
-- **Container Isolation**: The container runs with minimal privileges and dropped capabilities.
-- **Network Security**: Bridge network isolation prevents host network access.
-- **File System**: Tmpfs mounts for temporary data, read-only input mounts.
-- **Process Limits**: Maximum 100 processes to prevent resource exhaustion.
-
-## Usage Examples
-
-### Basic Security Analysis
-```bash
-export CLAUDE_API_KEY="your-api-key"
-./interactive-shell.sh /path/to/smart-contracts
-```
-
-### With Reference Documentation
-```bash
-./interactive-shell.sh /path/to/contracts /path/to/docs
-```
-
-### Debug Mode
-```bash
-./interactive-shell.sh /path/to/contracts --debug --mcp-debug
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create your feature branch
-3. Test with both batch and interactive modes
-4. Submit a pull request
 
 ## License
 

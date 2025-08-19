@@ -60,12 +60,13 @@ COPY --chown=${USER_NAME}:${USER_NAME} mcp/chonky /workspace/mcp-servers/chonky-
 # Install MCP server runtime dependencies only (using package-lock.json for exact versions)
 RUN cd /workspace/mcp-servers/chonky-mcp-server && npm ci --production
 
-# Don't forget to configure the MCP in claude-config.json
+# Don't forget to configure the MCP in claude-config.chonky.json
 
 ################# <--- Configure MCP Providers 
 
 # Copy the working Claude config
-COPY --chown=${USER_NAME}:${USER_NAME} claude-config.json /tmp/claude-config.json
+COPY --chown=${USER_NAME}:${USER_NAME} claude-config.chonky.json /tmp/claude-config.json
+COPY --chown=${USER_NAME}:${USER_NAME} settings.local.chonky.json /tmp/settings.local.json
 
 # Setup Claude configuration (as root, will switch to claude user)
 RUN echo '#!/bin/bash\n\
@@ -80,8 +81,16 @@ cd /workspace\n\
 # Copy the pre-configured Claude config\n\
 cp /tmp/claude-config.json ~/.claude.json\n\
 \n\
+# Create .claude directory and copy settings.local.json\n\
+mkdir -p ~/.claude\n\
+cp /tmp/settings.local.json ~/.claude/settings.local.json\n\
+mkdir -p /workspace/.claude\n\
+cp /tmp/settings.local.json /workspace/.claude/settings.local.json\n\
+\n\
 echo "Claude configuration complete"\n\
 ls -la ~/.claude.json\n\
+ls -la ~/.claude/settings.local.json\n\
+ls -la /workspace/.claude/settings.local.json\n\
 \n\
 EOF_CLAUDE_USER\n\
 \n\
@@ -113,12 +122,8 @@ RUN echo '#!/bin/bash\n\
 set -e\n\
 echo "Starting Claude Code..."\n\
 # Use environment variable for API key\n\
-export ANTHROPIC_API_KEY="${CLAUDE_API_KEY:-$ANTHROPIC_API_KEY}"\n\
-if [ -z "$ANTHROPIC_API_KEY" ]; then\n\
-  echo "Warning: No API key found. Set CLAUDE_API_KEY or ANTHROPIC_API_KEY environment variable"\n\
-fi\n\
-# Run Claude Code\n\
-exec claude "$@"\n\
+# Run Claude Code with dangerous skip permissions for jailfree mode\n\
+exec claude --dangerously-skip-permissions "$@"\n\
 ' > /home/${USER_NAME}/start-claude.sh \
     && chmod +x /home/${USER_NAME}/start-claude.sh
 

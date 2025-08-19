@@ -3,7 +3,7 @@
   "installMethod": "docker",
   "autoUpdates": false,
   "theme": "light",
-  "dangerouslyAllowAllExecutions": true,
+  "dangerouslySkipPermissions": true,
   "autoAcceptPermissions": true,
   "autoTrustNewProjects": true,
   "suppressTrustPrompts": true,
@@ -17,22 +17,26 @@
   "userID": "docker-user",
   "projects": {
     "/workspace": {
-      "allowedTools": ["*"],
+      "allowedTools": [],
       "permissions": {
         "allow": [
-          "Bash(*)",
-          "Edit(*)",
-          "Read(*)", 
-          "Write(*)",
-          "List(*)",
-          "Glob(*)",
-          "Grep(*)",
-          "Task(*)",
-          "WebFetch(*)",
-          "WebSearch(*)",
-          "NotebookRead(*)",
-          "NotebookWrite(*)",
-          "mcp__*"
+          "Bash",
+          "Edit",
+          "Read", 
+          "Write",
+          "List",
+          "Glob",
+          "Grep",
+          "Task",
+          "WebFetch",
+          "WebSearch",
+          "NotebookRead",
+          "NotebookWrite",
+          "mcp__chonky",
+          "mcp",
+          "mcp__",
+          "mcp__chon",
+          "MCP_chonky"
         ],
         "defaultMode": "acceptEdits",
         "additionalDirectories": ["/workspace/input", "/workspace/output", "/workspace/data", "/workspace/temp"]
@@ -42,11 +46,13 @@
       "history": [],
       "mcpContextUris": [],
       "mcpServers": {
-        "chonky-stdio": {
+        "chonky": {
           "type": "stdio",
           "command": "node",
           "args": ["/workspace/mcp-servers/chonky-mcp-server/build/index.js", "stdio"],
-          "env": {},
+          "env": {
+            "CHONKY_PRIMER_REPOS": "/workspace/mcp-servers/chonky-mcp-server/.chonky"
+          },
           "trusted": true,
           "autoStart": true
         }
